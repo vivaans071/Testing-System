@@ -1,0 +1,78 @@
+import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import inspect, text
+
+from .database import Base, engine, SessionLocal
+from .routes_admin import router as admin_router
+from .routes_auth import router as auth_router
+from .routes_public import router as public_router
+from .seed import seed_departments
+
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+
+
+def _ensure_schema():
+    """Add columns introduced after the DB was first created. SQLAlchemy's
+    create_all() only creates missing tables, never alters existing ones, so
+    new columns on an existing table need a lightweight migration like this."""
+    insp = inspect(engine)
+    tables = insp.get_table_names()
+    # Column type names differ between SQLite and SQL Server. On a fresh Azure
+    # database there are no pre-existing tables, so create_all() builds
+    # everything and this migration is a no-op. It only runs (and only needs the
+    # right dialect types) when upgrading a database that predates these columns.
+    is_mssql = engine.dialect.name == "mssql"
+    STR = "NVARCHAR(255)" if is_mssql else "VARCHAR"
+    BOOL = "BIT DEFAULT 0" if is_mssql else "BOOLEAN DEFAULT 0"
+    INT = "INT" if is_mssql else "INTEGER"
+    DT = "DATETIME2" if is_mssql else "DATETIME"
+    DATE = "DATE"
+    if "assets" in tables:
+        cols = [c["name"] for c in insp.get_columns("assets")]
+        with engine.begin() as conn:
+            if "asset_class" not in cols:
+                conn.execute(text(f"ALTER TABLE assets ADD asset_class {STR}"
+                                  if is_mssql else "ALTER TABLE assets ADD COLUMN asset_class VARCHAR"))
+            if "equipment_type" not in cols:
+                conn.execute(text(f"ALTER TABLE assets ADD equipment_type {STR}"
+                                  if is_mssql else "ALTER TABLE assets ADD COLUMN equipment_type VARCHAR"))
+            if "checked_out" not in cols:
+                add = "ALTER TABLE assets ADD " if is_mssql else "ALTER TABLE assets ADD COLUMN "
+                conn.execute(text(f"{add}checked_out {BOOL}"))
+                conn.execute(text(f"{add}holder_department_id {INT}"))
+                conn.execute(text(f"{add}holder_person {STR}"))
+                conn.execute(text(f"{add}checked_out_at {DT}"))
+                conn.execute(text(f"{add}due_back {DATE}"))
+    if "departments" in tables:
+        cols = [c["name"] for c in insp.get_columns("departments")]
+        if "code" not in cols:
+            with engine.begin() as conn:
+                add = "ALTER TABLE departments ADD " if is_mssql else "ALTER TABLE departments ADD COLUMN "
+                conn.execute(text(f"{add}code {'NVARCHAR(8)' if is_mssql else 'VARCHAR(8)'}"))
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # startup: create tables, run light migrations, seed the first admin
+    Base.metadata.create_all(bind=engine)
+    _ensure_schema()
+    with SessionLocal() as db:
+        seed_departments(db)
+    yield
+    # shutdown: nothing to clean up
+
+
+app = FastAPI(title="Asset Check-In", lifespan=lifespan)
+app.include_router(admin_router)
+app.include_router(auth_router)
+app.include_router(public_router)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.get("/", include_in_schema=False)
+def index():
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))

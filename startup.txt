@@ -1,0 +1,5 @@
+Azure App Service → Settings → Configuration → Startup Command:
+
+gunicorn -w 2 -k uvicorn.workers.UvicornWorker app.main:app
+
+(2 workers is fine for this app; raise if you get busy.)

@@ -1,0 +1,10 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+gunicorn>=21.0
+sqlalchemy>=2.0
+qrcode>=7.4
+pillow>=10.0
+python-barcode>=0.15
+openpyxl>=3.1
+python-multipart>=0.0.9
+pyodbc>=5.1               # SQL Server / Azure SQL driver
