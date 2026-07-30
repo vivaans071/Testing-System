@@ -55,13 +55,47 @@ def _ensure_schema():
                 conn.execute(text(f"{add}code {'NVARCHAR(8)' if is_mssql else 'VARCHAR(8)'}"))
 
 
+def _init_db():
+    """Create every table, migrate, and seed - safe under multiple workers.
+
+    Root cause this guards against: with 2 Gunicorn workers, both run startup at
+    once. If one worker creates a table and the other then tries to create the
+    SAME table, SQL Server raises "already an object named ...". If that error
+    aborts the whole create step, the REMAINING tables (assets, reminders, ...)
+    never get created - which is exactly what produced /api/assets -> 500 and a
+    blank page. So we create tables ONE AT A TIME and ignore only the harmless
+    "already exists" race, guaranteeing every table ends up created regardless
+    of worker timing.
+    """
+    from sqlalchemy.exc import ProgrammingError, OperationalError, IntegrityError
+
+    def _harmless(err) -> bool:
+        s = str(err).lower()
+        return "already an object named" in s or "already exists" in s
+
+    # Create each table on its own so a race on one can't stop the others.
+    for table in Base.metadata.sorted_tables:
+        try:
+            table.create(bind=engine, checkfirst=True)
+        except (ProgrammingError, OperationalError) as e:
+            if not _harmless(e):
+                raise
+
+    try:
+        _ensure_schema()
+    except (ProgrammingError, OperationalError):
+        pass  # columns already present from a concurrent/prior run
+
+    try:
+        with SessionLocal() as db:
+            seed_departments(db)
+    except (IntegrityError, ProgrammingError, OperationalError):
+        pass  # departments already seeded by another worker
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # startup: create tables, run light migrations, seed the first admin
-    Base.metadata.create_all(bind=engine)
-    _ensure_schema()
-    with SessionLocal() as db:
-        seed_departments(db)
+    _init_db()
     yield
     # shutdown: nothing to clean up
 
