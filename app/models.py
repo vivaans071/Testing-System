@@ -51,7 +51,7 @@ def utcnow():
 class Department(Base):
     __tablename__ = "departments"
     id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True, nullable=False)
+    name = Column(String(255), unique=True, nullable=False)
     # Short code used in generated asset codes, e.g. "DETC" in 6184-A30-DETC-23.
     code = Column(String(8), nullable=True)
 
@@ -195,14 +195,14 @@ class ReminderLog(Base):
 
 class Setting(Base):
     __tablename__ = "settings"
-    key = Column(String, primary_key=True)
+    key = Column(String(255), primary_key=True)
     value = Column(String, nullable=True)
 
 
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True)
-    email = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String(255), unique=True, index=True, nullable=False)
     full_name = Column(String, nullable=False)
     password_hash = Column(String, nullable=False)
     role = Column(String, nullable=False, default="viewer")  # "admin" or "viewer"
