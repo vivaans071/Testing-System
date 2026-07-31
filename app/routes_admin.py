@@ -539,7 +539,7 @@ def analytics(exclude_missing: bool = False,
 
     exclude_missing drops the "(none)" buckets from the breakdown charts so
     incomplete legacy data doesn't dominate them."""
-    assets = db.query(models.Asset).filter(models.Asset.active.is_(True)).all()
+    assets = db.query(models.Asset).filter((models.Asset.active == True)).all()
     total = len(assets)
     now = models.utcnow()
 
@@ -746,7 +746,7 @@ def list_assets(q: Optional[str] = None, limit: int = 0, offset: int = 0,
                 db: Session = Depends(get_db), user=Depends(current_user)):
     query = db.query(models.Asset)
     if active_only:
-        query = query.filter(models.Asset.active.is_(True))
+        query = query.filter((models.Asset.active == True))
     all_matching = _filter_assets(query.order_by(models.Asset.name).all(), q)
 
     # Duplicate detection runs across the whole (filtered) set, not just the
@@ -962,7 +962,7 @@ def delete_reminder(reminder_id: int, db: Session = Depends(get_db), user=Depend
 def reminders_upcoming(db: Session = Depends(get_db), user=Depends(current_user)):
     """The notification center: every active reminder, grouped by urgency."""
     rows = (db.query(models.Reminder)
-            .filter(models.Reminder.active.is_(True), models.Reminder.next_due.isnot(None))
+            .filter((models.Reminder.active == True), models.Reminder.next_due.isnot(None))
             .order_by(models.Reminder.next_due).all())
     groups = {"overdue": [], "due": [], "soon": [], "upcoming": []}
     for r in rows:
@@ -1027,7 +1027,7 @@ def bulk_assets(body: dict, db: Session = Depends(get_db), user=Depends(require_
 def list_duplicates(db: Session = Depends(get_db), user=Depends(current_user)):
     """Groups of assets that look like duplicates of each other."""
     from collections import defaultdict
-    assets = db.query(models.Asset).filter(models.Asset.active.is_(True)).all()
+    assets = db.query(models.Asset).filter((models.Asset.active == True)).all()
     buckets = defaultdict(list)
     for a in assets:
         for k in _dup_key(a):
