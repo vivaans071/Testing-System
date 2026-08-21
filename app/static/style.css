@@ -163,11 +163,7 @@ input, select, textarea {
 .pill {
   font-size: 11px; padding: 3px 9px; border-radius: 999px; border: 1px solid;
   font-weight: 500; white-space: nowrap;
-  /* Long status names were spilling into the next column. Keep the pill inside
-     its cell and ellipsize rather than overflow. */
-  display: inline-block; box-sizing: border-box;
-  max-width: 100%; overflow: hidden; text-overflow: ellipsis;
-  vertical-align: middle;
+  display: inline-block; box-sizing: border-box; vertical-align: middle;
 }
 .pill.ok { color: var(--green); border-color: #bcd8cc; background: #eef8f2; }
 .pill.stale { color: var(--amber); border-color: #e6cf9a; background: var(--amber-bg); }
@@ -260,15 +256,16 @@ img.barcode { height: 56px; }
 .asset-tabpanel { min-width: 0; max-width: 100%; overflow-x: hidden; }
 .asset-tabpanel > * { min-width: 0; }
 .asset-tabpanel .tablewrap { max-width: 100%; overflow-x: auto; }
-.asset-tabpanel .tablewrap table { table-layout: fixed; width: 100%; }
-/* Fixed layout splits columns evenly by default, which squeezed Notes into a
-   sliver. Weight them toward the columns that actually carry long text. */
-#tabpanel-activity .tablewrap th:nth-child(1) { width: 14%; }
-#tabpanel-activity .tablewrap th:nth-child(2) { width: 9%; }
-#tabpanel-activity .tablewrap th:nth-child(3) { width: 14%; }
-#tabpanel-activity .tablewrap th:nth-child(4) { width: 13%; }
-#tabpanel-activity .tablewrap th:nth-child(5) { width: 34%; }
-#tabpanel-activity .tablewrap th:nth-child(6) { width: 16%; }
+/* Natural column sizing with a horizontal scrollbar, rather than table-layout
+   fixed with percentage widths — that was squeezing TYPE down to a sliver and
+   truncating the status pills. Columns now size to their content and the Log
+   scrolls sideways if it needs to. */
+.asset-tabpanel .tablewrap table { table-layout: auto; width: max-content; min-width: 100%; }
+#tabpanel-activity .tablewrap td:nth-child(1) { white-space: nowrap; }   /* when */
+#tabpanel-activity .tablewrap td:nth-child(2) { white-space: nowrap; }   /* type pill */
+#tabpanel-activity .tablewrap td:nth-child(3) { white-space: nowrap; }   /* by */
+#tabpanel-activity .tablewrap td:nth-child(4) { min-width: 150px; }      /* details */
+#tabpanel-activity .tablewrap td:nth-child(5) { min-width: 220px; max-width: 340px; } /* notes */
 .asset-tabpanel .tablewrap td {
   white-space: normal;
   overflow-wrap: anywhere;
@@ -276,11 +273,6 @@ img.barcode { height: 56px; }
   vertical-align: top;
 }
 .asset-tabpanel .tablewrap th { white-space: nowrap; }
-/* Keep the TYPE pill and BY email from crushing each other. */
-#tabpanel-activity .tablewrap th:nth-child(2),
-#tabpanel-activity .tablewrap td:nth-child(2) { min-width: 108px; }
-#tabpanel-activity .tablewrap th:nth-child(3),
-#tabpanel-activity .tablewrap td:nth-child(3) { min-width: 130px; }
 
 /* Bulk edit dialog: checkbox-gated field rows. */
 .bulk-edit-row {
